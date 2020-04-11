@@ -247,7 +247,7 @@ services:
       QUEUES: delete_user
 
   grafana:
-    image: grafana/grafana:6.1.6
+    image: wshihadeh/grafana:dj-metrics-v1
     environment:
       GF_SECURITY_ADMIN_USER: 'admin'
       GF_SECURITY_ADMIN_PASSWORD: 'admin'

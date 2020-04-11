@@ -1,0 +1,11 @@
+---
+apiVersion: 1
+providers:
+- name: DelayedJobs
+  orgId: 1
+  folder: Delayed Jobs Metrics
+  type: file
+  disableDeletion: true
+  editable: true
+  options:
+    path: "/etc/grafana/provisioning/dashboards/DelayedJobs"
