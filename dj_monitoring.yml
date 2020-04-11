@@ -1,0 +1,377 @@
+version: '3.7'
+
+networks:
+  monitoring:
+    external: true
+
+volumes:
+  mysql_data:
+  po_data:
+  gr_data:
+
+
+services:
+
+  mysql:
+    image: mysql:5.7
+    command: mysqld --general-log=1 --general-log-file=/var/log/mysql/general-log.log
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: dummy
+      MYSQL_DATABASE: rails_api_production
+
+  rails_api_client:
+    image: wshihadeh/rails_api_client:dj-metrics-v1
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:
+      API_HOST_URL: rails_api_web:8080
+
+  djs_sql_expoter:
+    image:  wshihadeh/djs_sql_expoter:dj-metrics-v1
+    command: '-config.file=/etc/sql_exporter/sql_exporter.yml'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.sql-exporter.loadbalancer.server.port=9399
+        - traefik.http.routers.sql-exporter.rule=Host(`djs.wshihadeh.cloud`)
+        - traefik.http.routers.sql-exporter.service=sql-exporter
+        - traefik.http.routers.sql-exporter.entrypoints=web
+        - traefik.docker.network=traefik
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:  &rails_api_env
+      DATABASE_URL: mysql://root:dummy@tcp(mysql:3306)/rails_api_production
+
+  rails_api_web:
+    image:  wshihadeh/rails_api:dj-metrics-v1
+    command: 'web'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.rails-api.loadbalancer.server.port=9399
+        - traefik.http.routers.rails-api.rule=Host(`api.wshihadeh.cloud`)
+        - traefik.http.routers.rails-api.service=rails-api
+        - traefik.http.routers.rails-api.entrypoints=web
+        - traefik.docker.network=traefik
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:  &rails_api_env
+      DATABASE_URL: mysql2://root:dummy@mysql:3306/rails_api_production
+      RAILS_SERVE_STATIC_FILES: 'true'
+      RAILS_LOG_TO_STDOUT: 'true'
+      DELAYED_JOB_DEFAULT_QUEUE: 'user-jobs'
+      HTAUTH_METRICS_USER: 'htuser'
+      HTAUTH_METRICS_PASSWORD: 'htsecret'
+
+  rails_api_djs:
+    image:  wshihadeh/rails_api:dj-metrics-v1
+    command: 'delayed-jobs'
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:
+      <<: *rails_api_env
+      QUEUES: user-jobs
+
+  rails_api_invalid_djs:
+    image:  wshihadeh/rails_api:dj-metrics-v1
+    command: 'delayed-jobs'
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:
+      <<: *rails_api_env
+      QUEUES: invalid
+
+  rails_api_create_users_djs:
+    image:  wshihadeh/rails_api:dj-metrics-v1
+    command: 'delayed-jobs'
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:
+      <<: *rails_api_env
+      QUEUES: create_user
+
+  rails_api_delete_users_djs:
+    image:  wshihadeh/rails_api:dj-metrics-v1
+    command: 'delayed-jobs'
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 6
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+    environment:
+      <<: *rails_api_env
+      QUEUES: delete_user
+
+  grafana:
+    image: grafana/grafana:6.1.6
+    environment:
+      GF_SECURITY_ADMIN_USER: 'admin'
+      GF_SECURITY_ADMIN_PASSWORD: 'admin'
+      GF_USERS_ALLOW_SIGN_UP: 'true'
+      GF_LOG_LEVEL: 'debug'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.grafana.loadbalancer.server.port=3000
+        - traefik.http.routers.grafana.rule=Host(`grafana.wshihadeh.cloud`)
+        - traefik.http.routers.grafana.service=grafana
+        - traefik.http.routers.grafana.entrypoints=web
+        - traefik.docker.network=traefik
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+        parallelism: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+      resources:
+        reservations:
+          memory: 100M
+        limits:
+          memory: 400M
+    volumes:
+      - gr_data:/var/lib/grafana:rw
+    logging:
+      options:
+        "max-size": "10m"
+        "max-file": "5"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: wshihadeh/prometheus:dj-metrics-v1
+    environment:
+      RAILS_API_USERNAME: 'htuser'
+      RAILS_API_PASSWORD: 'htsecret'
+      RAILS_API_TARGET: 'rails_api_web:8080'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.prometheus-backend.loadbalancer.server.port=9090
+        - traefik.http.routers.prometheus-backend.rule=Host(`prometheus.wshihadeh.cloud`)
+        - traefik.http.routers.prometheus-backend.service=prometheus-backend
+        - traefik.http.routers.prometheus-backend.entrypoints=web
+        - traefik.docker.network=traefik
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+        parallelism: 1
+      resources:
+        reservations:
+          memory: 100M
+        limits:
+          memory: 300M
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - po_data:/prometheus
+    networks:
+      - monitoring
+
+  proxy:
+    image: traefik:v2.1
+    command:
+      - '--providers.docker=true'
+      - '--entryPoints.web.address=:80'
+      - '--entryPoints.metrics.address=:8082'
+      - '--providers.providersThrottleDuration=2s'
+      - '--providers.docker.watch=true'
+      - '--providers.docker.swarmMode=true'
+      - '--providers.docker.swarmModeRefreshSeconds=15s'
+      - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.defaultRule=Host("wshihadeh.cloud")'
+      - '--accessLog.bufferingSize=0'
+      - '--api=true'
+      - '--api.dashboard=true'
+      - '--api.insecure=true'
+      - '--ping.entryPoint=web'
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    ports:
+      - '80:80'
+      - '8080:8080'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik
+        - traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080
+        - traefik.http.routers.traefik-dashboard.rule=Host(`dashboard.wshihadeh.cloud`)
+        - traefik.http.routers.traefik-dashboard.service=traefik-dashboard
+        - traefik.http.routers.traefik-dashboard.entrypoints=web
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        'max-size': '10m'
+        'max-file': '5'
+    networks:
+      - monitoring
+
