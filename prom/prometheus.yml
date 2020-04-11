@@ -1,0 +1,29 @@
+global:
+  external_labels:
+      monitor: 'Delayed-Jobs-Monitoring'
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+
+   - job_name: 'rails_api_delayed_jobs'
+     scrape_interval: 20s
+     scrape_timeout: 19s
+     metrics_path: /metrics
+     scheme: http
+     static_configs:
+     - targets:
+       - @RAILS_API_TARGET
+     basic_auth:
+       username: @RAILS_API_USERNAME
+       password: '@RAILS_API_PASSWORD'
+
+   - job_name: 'mysql_export_delayed_jobs'
+     scrape_interval: 20s
+     scrape_timeout: 19s
+     metrics_path: /metrics
+     scheme: http
+     static_configs:
+     - targets:
+       - @MYSQL_EXPORT_API_TARGET
