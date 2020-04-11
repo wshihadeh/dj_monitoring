@@ -76,7 +76,7 @@ services:
         - traefik.http.routers.sql-exporter.rule=Host(`djs.wshihadeh.cloud`)
         - traefik.http.routers.sql-exporter.service=sql-exporter
         - traefik.http.routers.sql-exporter.entrypoints=web
-        - traefik.docker.network=traefik
+        - traefik.docker.network=monitoring
       restart_policy:
         condition: any
         delay: 5s
@@ -105,11 +105,11 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.services.rails-api.loadbalancer.server.port=9399
+        - traefik.http.services.rails-api.loadbalancer.server.port=8080
         - traefik.http.routers.rails-api.rule=Host(`api.wshihadeh.cloud`)
         - traefik.http.routers.rails-api.service=rails-api
         - traefik.http.routers.rails-api.entrypoints=web
-        - traefik.docker.network=traefik
+        - traefik.docker.network=monitoring
       restart_policy:
         condition: any
         delay: 5s
@@ -134,6 +134,7 @@ services:
       RAILS_SERVE_STATIC_FILES: 'true'
       RAILS_LOG_TO_STDOUT: 'true'
       DELAYED_JOB_DEFAULT_QUEUE: 'user-jobs'
+      DELAYED_JOB_METRICS_ENABLED: 'true'
       HTAUTH_METRICS_USER: 'htuser'
       HTAUTH_METRICS_PASSWORD: 'htsecret'
 
@@ -259,7 +260,7 @@ services:
         - traefik.http.routers.grafana.rule=Host(`grafana.wshihadeh.cloud`)
         - traefik.http.routers.grafana.service=grafana
         - traefik.http.routers.grafana.entrypoints=web
-        - traefik.docker.network=traefik
+        - traefik.docker.network=monitoring
       mode: replicated
       replicas: 1
       update_config:
@@ -291,6 +292,7 @@ services:
       RAILS_API_USERNAME: 'htuser'
       RAILS_API_PASSWORD: 'htsecret'
       RAILS_API_TARGET: 'rails_api_web:8080'
+      MYSQL_EXPORT_API_TARGET: 'djs_sql_expoter:9399'
     deploy:
       labels:
         - traefik.enable=true
@@ -298,7 +300,7 @@ services:
         - traefik.http.routers.prometheus-backend.rule=Host(`prometheus.wshihadeh.cloud`)
         - traefik.http.routers.prometheus-backend.service=prometheus-backend
         - traefik.http.routers.prometheus-backend.entrypoints=web
-        - traefik.docker.network=traefik
+        - traefik.docker.network=monitoring
       mode: replicated
       replicas: 1
       update_config:
@@ -350,7 +352,7 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.docker.network=traefik
+        - traefik.docker.network=monitoring
         - traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080
         - traefik.http.routers.traefik-dashboard.rule=Host(`dashboard.wshihadeh.cloud`)
         - traefik.http.routers.traefik-dashboard.service=traefik-dashboard
