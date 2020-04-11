@@ -1,0 +1,137 @@
+# This collector will be referenced in the exporter configuration as `pricing_data_freshness`.
+collector_name: delayed_jobs_collector
+
+# A Prometheus metric with (optional) additional labels, value and labels populated from one query.
+metrics:
+
+  - metric_name: sql_delayed_jobs_total_count
+    type: gauge
+    help: 'The Delayed Jobs total count.'
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) as COUNT_ALL
+      FROM `delayed_jobs`
+
+  - metric_name: sql_delayed_jobs_pending_total_count
+    type: gauge
+    help: 'The Pending Delayed Jobs total count (Jobs with 0 attempts)'
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`attempts` = 0 AND
+            `delayed_jobs`.`locked_at` IS NULL
+
+  - metric_name: sql_delayed_jobs_queue_total_count
+    type: gauge
+    help: 'The Delayed Jobs total count Per Queue.'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+      - DELAYED_JOBS_ATTEMPTS
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY,
+             `delayed_jobs`.`attempts` AS DELAYED_JOBS_ATTEMPTS
+      FROM `delayed_jobs`
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`,
+               `delayed_jobs`.`attempts`
+
+  - metric_name: sql_delayed_jobs_queue_pending_total_count
+    type: gauge
+    help: 'The Pending Delayed Jobs total count Per Queue.'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+      - DELAYED_JOBS_ATTEMPTS
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY,
+             `delayed_jobs`.`attempts` AS DELAYED_JOBS_ATTEMPTS
+      FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`attempts` = 0 AND
+            `delayed_jobs`.`locked_at` IS NULL
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`,
+               `delayed_jobs`.`attempts`
+
+  - metric_name: sql_delayed_jobs_queue_error_total_count
+    type: gauge
+    help: 'The total count of delayed jobs with errors (Terminated Jobs do not count).'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+      - DELAYED_JOBS_ATTEMPTS
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY,
+             `delayed_jobs`.`attempts` AS DELAYED_JOBS_ATTEMPTS
+      FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`last_error` IS NOT NULL AND
+            `delayed_jobs`.`failed_at` IS NULL
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`,
+               `delayed_jobs`.`attempts`
+
+  - metric_name: sql_delayed_jobs_queue_failed_total_count
+    type: gauge
+    help: 'The total count of the failed delayed jobs with errors (Jobs will not be retryed anymore).'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY
+      FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`failed_at` IS NOT NULL
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`
+
+  - metric_name: sql_delayed_jobs_to_be_executed_today_count
+    type: gauge
+    help: 'The total count of the delayed jobs that should be executed today).'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+      - DELAYED_JOBS_ATTEMPTS
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY,
+             `delayed_jobs`.`attempts` AS DELAYED_JOBS_ATTEMPTS
+      FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`failed_at` IS NULL AND
+            (DATE(run_at) =  CURDATE())
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`,
+               `delayed_jobs`.`attempts`
+
+  - metric_name: sql_delayed_jobs_failed_today_count
+    type: gauge
+    help: 'The total count of the delayed jobs that failed today).'
+    key_labels:
+      - DELAYED_JOBS_QUEUE
+      - DELAYED_JOBS_PRIORITY
+      - DELAYED_JOBS_ATTEMPTS
+    values: [COUNT_ALL]
+    query: |
+      SELECT COUNT(*) AS COUNT_ALL,
+             `delayed_jobs`.`queue` AS DELAYED_JOBS_QUEUE,
+             `delayed_jobs`.`priority` AS DELAYED_JOBS_PRIORITY,
+             `delayed_jobs`.`attempts` AS DELAYED_JOBS_ATTEMPTS
+      FROM `delayed_jobs`
+      WHERE `delayed_jobs`.`failed_at` IS NOT NULL AND
+            (DATE(run_at) =  CURDATE())
+      GROUP BY `delayed_jobs`.`queue`,
+               `delayed_jobs`.`priority`,
+               `delayed_jobs`.`attempts`
+
